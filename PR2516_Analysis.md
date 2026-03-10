@@ -259,7 +259,7 @@ Collected with the same methodology as SET (300s warmup, 300s collection on the 
 | Branch misses | 341.1M | 372.2M | +9.1% |
 | L1 dcache miss rate | 0.42% | 0.40% | ~0% |
 
-The same pattern as SET 96-byte: cycles and instructions grew proportionally (+7.3% and +7.5%), IPC stayed flat at ~4.0, and cache miss rates are unchanged. The regression is purely from executing more instructions per request — not from stalls, mispredictions, or cache pressure.
+The same pattern as SET 96-byte: cycles and instructions grew proportionally (+7.3% and +7.5%), IPC stayed flat at ~4.0, and cache miss rates are unchanged. The regression is purely from executing more instructions per request as opposed to CPU stalls, mispredictions, or cache pressure.
 
 Notably, the IPC for GET (4.01–4.02) is slightly higher than SET (3.95), and this is consistent with GET being a simpler read-only pipeline with better instruction-level parallelism.
 
@@ -267,7 +267,7 @@ Notably, the IPC for GET (4.01–4.02) is slightly higher than SET (3.95), and t
 
 ## Sampling Profiler Results (GET, 16-byte)
 
-A separate profiling run was performed for GET 16-byte values using the same methodology (300s warmup, 60s recording with call graphs). This workload hits a fundamentally different code path than SET 96-byte since 16-byte values are embedded (`hasembval=1`), so objectGetVal takes the "slow path" every time.
+A separate profiling run was performed for GET 16-byte values using the same methodology (300s warmup, 60s recording with call graphs). This workload hits a different code path than SET 96-byte since 16-byte values are embedded (`hasembval=1`), so objectGetVal takes the "slow path" every time.
 
 Total cycles captured across all threads:
 
@@ -307,7 +307,7 @@ GET 16-byte shows a +3.7% increase in total sampled cycles across all threads, a
 
 ### The GET 16-byte Embedded Path Problem
 
-The main difference from SET 96-byte is that every objectGetVal call takes the slow path. For SET with 96-byte values, `hasembval=0` and objectGetVal returns `o->val_ptr` directly. For GET with 16-byte values, `hasembval=1` and objectGetVal must:
+The main difference from SET 96-byte is that every objectGetVal call takes the slow path since the values are now embedded. For SET with 96-byte values, `hasembval=0` and objectGetVal returns `o->val_ptr` directly. For GET with 16-byte values, `hasembval=1` and objectGetVal must:
 
 1. Test `hasembval` bit → branch taken to embedded path
 2. Compute `objectEmbeddedData(o)` — pointer to data after the header
