@@ -27,7 +27,7 @@ This pattern tells us that the regression requires the main thread to be CPU-bou
 - Instance: **c7g.metal** (AWS Graviton3)
 - Architecture: **aarch64**, 64 vCPUs
 - Cache: 64 KiB L1d per core, 1 MiB L2 per core, 32 MiB shared L3
-- Build: `make -j64` with **-O3**, no LTO (`-flto` is not active in the default Makefile build)
+- Build: `make -j64` with **-O3**
 - Valkey config: `--io-threads 9 --io-threads-do-reads yes`
 - Benchmark: `valkey-benchmark -c 1600 -P 10 -d 96 --threads 90`
 
