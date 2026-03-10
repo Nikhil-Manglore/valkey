@@ -179,7 +179,7 @@ Total cycles captured across all threads:
 
 The regression reflects an increase in work per request since each request now requires more instructions and cycles, so fewer requests complete in the same time.
 
-Profiling shows that execution time shifted across functions since approximately 28.1B cycles moved from previously hot functions to newly hot ones. This indicates the regression is caused by a change in execution paths rather than increased stalls or idle time.
+Profiling shows that new functions (primarily objectGetVal) account for the additional cycles, while IPC and cache/branch miss rates remain unchanged. This indicates the regression is caused by increased instruction count per request rather than stalls or microarchitectural inefficiency.
 
 #### Functions that got MORE expensive
 
