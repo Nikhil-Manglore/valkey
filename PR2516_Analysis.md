@@ -99,14 +99,14 @@ The compiled fast path on aarch64 (for non-embedded objects like our 96-byte val
 ```asm
 objectGetVal:
   ldr   x1, [x0]              // Load 8-byte bitfield header
-  tbz   x1, #34, fast_path    // Test hasembval bit — branch if clear
+  tbz   x1, #34, fast_path    // Test hasembval bit — branch if hasembval=0
   ...                          // (slow embedded path: ~30 instructions + sdsHdrSize call)
 fast_path:
   ldr   x0, [x0, #8]          // Load val_ptr
   ret
 ```
 
-The compiler places the fast path (`val_ptr` load + return) at the end of the function body and then branches to it when `hasembval` is clear. The slow embedded path falls through inline. For non-embedded objects, this is 4 instructions (`ldr` + `tbz` + `ldr` + `ret`). For embedded objects, a typical slow-path execution is ~30 instructions plus a function call to `sdsHdrSize`.
+The compiler places the fast path (`val_ptr` load + return) at the end of the function body and then branches to it when `hasembval=0`. When `hasembval=1` the `tbz` branch isn't taken and so execution falls through inline into the slow path code. For non-embedded objects, this is 4 instructions (`ldr` + `tbz` + `ldr` + `ret`). For embedded objects, a typical slow-path execution is ~30 instructions plus a function call to `sdsHdrSize`.
 
 Similarly, `objectSetVal()` is a new function for writing values, and `objectGetKey()` for reading embedded keys. Every place in the codebase that previously did `o->ptr` now calls one of these functions.
 
