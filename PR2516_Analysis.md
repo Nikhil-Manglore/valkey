@@ -329,7 +329,7 @@ The GET pipeline calls objectGetVal fewer times per request than SET, but each c
 
 ### Attempt 1: Reduce calls to objectGetVal
 
-**Reasoning**: I initially assumed objectGetVal() was the reason for the regression so I reduced the number of times it was called throughout the codebase.
+**Reasoning**: I initially assumed objectGetVal() was the reason for the regression so I reduced the number of times it was called throughout the codebase. I also removed the assert statement.
 
 **Result** No measurable improvement.
 
@@ -341,9 +341,9 @@ The GET pipeline calls objectGetVal fewer times per request than SET, but each c
 
 ### Attempt 3: Targeted decrRefCount + likely() Fix
 
-**Reasoning**: The biggest single contributor is IOThreadFreeArgv. I wanted to bypass objectGetVal in decrRefCount's NULL check by directly testing `o->hasembval || o->val_ptr != NULL`. I also added `likely(!o->hasembval)` to objectGetVal to help branch prediction.
+**Reasoning**: Utilize an extra 1-byte precomputed value offset at the start of the embedded object data. Instead of traversing the embedded layout at runtime (checking hasexpire, hasembkey, and calling sdsHdrSize) on every objectGetVal() call, we compute the offset to the SDS string data once at creation time and store it.
 
-**Result**: No measurable improvement. All benchmark results within noise (overlapping 99% confidence intervals).
+**Result**: No measurable improvement. All benchmark results within noise.
 
 ---
 
