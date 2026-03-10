@@ -223,7 +223,7 @@ The 5.76B inclusive cycles in objectGetVal (self time + callees like sdsHdrSize)
 
 ## Regression Analysis (SET, 96-byte)
 
-The main thread executes the command pipeline. The regression shows up as fewer completed requests in the same time, which implies higher work per request.
+The main thread executes the command pipeline and the regression shows up as fewer completed requests in the same time, which implies higher work per request.
 
 The profile and hardware-counter data suggest that the increase is not dominated by branch or cache stalls. Instead, the system appears to be doing more instructions per request, with much of the extra cost coming from the new accessor/helper layer introduced by the PR.
 
@@ -243,7 +243,7 @@ Contributors include:
 
 - **IO-thread top-level overhead** also rises slightly, consistent with changed batching/scheduling behavior under backpressure.
 
-Overall, the regression seems to be from the cumulative cost of the abstraction layer. Direct field access that was previously a single load is now routed through helper functions and additional checks across many hot call sites. The CPU is simply executing more instructions to do the same logical operation, and at high throughput where the CPU is the bottleneck, we will see fewer requests per second.
+Overall, the regression seems to be from the cumulative cost of the abstraction layer. Direct field access that was previously a single load is now routed through helper functions and additional checks across many hot call sites. The CPU is executing more instructions to do the same logical operation, and at high throughput where the CPU is the bottleneck, we will see fewer requests per second.
 
 ---
 
