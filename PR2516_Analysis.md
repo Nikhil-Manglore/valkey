@@ -161,9 +161,9 @@ This lets us compute self cycles (time spent in a function itself, not its calle
 | L1 dcache miss rate | 0.45% | 0.43% | 0% |
 
 
-The IPC (instructions per cycle) before and after the PR is essentially identical at ~3.95. If the regression were dominated by branch mispredictions or memory stalls (e.g., cache misses), IPC would typically decrease because the CPU would spend more cycles stalled waiting for data or recovering from pipeline flushes. Instead, both cycles and instructions increased proportionally while IPC remained unchanged. This indicates that the CPU pipeline is operating at similar efficiency and the regression is not caused by additional waiting. Rather, the workload is executing more instructions per request, meaning the system is performing additional work rather than spending more time stalled.
+The IPC (instructions per cycle) before and after the PR is essentially identical at ~3.95. If the regression was dominated by branch mispredictions or memory stalls (cache misses), IPC would typically decrease because the CPU would spend more cycles stalled waiting for data or recovering from pipeline flushes. Instead, both cycles and instructions increased proportionally while IPC remained unchanged. This indicates that the CPU pipeline is operating at similar efficiency and the regression is not caused by additional waiting. Rather, the workload is executing more instructions per request, meaning the system is performing additional work rather than spending more time stalled.
 
-Branch misses grew +10.3%, roughly in proportion to the +8.2% instruction growth, indicating that the misprediction rate did not meaningfully change — the extra branch misses are simply from executing more branches, not from harder-to-predict branches.
+Furthermore, branch misses grew +10.3%, roughly in proportion to the +8.2% instruction growth, indicating that the misprediction rate did not meaningfully change. Thus, the extra branch misses are simply from executing more branches, not because the CPU is having a harder time predicting the branch.
 
 ---
 
