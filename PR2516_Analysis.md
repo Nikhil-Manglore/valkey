@@ -118,7 +118,7 @@ I used two profiling approaches:
 
 ### 1. Hardware Performance Counters (`perf stat`)
 
-Measures aggregate CPU metrics on the main thread for over 300 seconds under sustained load.
+Measures aggregate CPU metrics on the main thread for over 300 seconds under sustained load (Valkey-Benchmark).
 
 ```bash
 # 300s warmup, then 300s collection on the valkey-server PID
