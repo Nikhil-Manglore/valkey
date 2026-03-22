@@ -14,6 +14,7 @@ This document explains exactly what causes the regression, how I measured it, an
 |---|---|---|---|
 | SET 96-byte, pipeline=10, 9 IO threads, 1600 clients | ~1.86M rps | ~1.75M rps | −6% |
 | GET 16-byte, pipeline=10, 9 IO threads, 1600 clients | ~2.63M rps | ~2.47M rps | −6% |
+| SET 16-byte, pipeline=10, 9 IO threads, 1600 clients | ~1.89 rps | ~1.84 rps | −3% |
 
 This PR was tested across multiple configurations and the regression only appears when both high pipelining and many IO threads are combined: [Dashboard Link](https://perf-dashboard.valkey.io/public-dashboards/3e45bf8ded3043edaa941331cd1a94e2?from=2026-01-05T19:00:00.000Z&to=2026-01-06T06:59:58.000Z&timezone=UTC)
 
