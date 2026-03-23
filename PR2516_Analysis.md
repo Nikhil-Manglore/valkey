@@ -57,7 +57,7 @@ Accessing the value was a single instruction:
 ldr  x0, [x0, #8]    // o->ptr — one load then done
 ```
 
-After the PR, the value can be either a pointer (`val_ptr`) or embedded inline after the object header. A new bitfield flag (`hasembval`) control the layout:
+After the PR, the value can be either a pointer (`val_ptr`) or embedded inline after the object header. A new bitfield flag (`hasembval`) controls the layout:
 
 ```c
 // AFTER: serverObject layout
@@ -102,8 +102,8 @@ The compiled fast path on aarch64 (for non-embedded objects like our 96-byte val
 ```asm
 objectGetVal:
   ldr   x1, [x0]              // Load 8-byte bitfield header
-  tbz   x1, #34, fast_path    // Test hasembval bit — branch if hasembval=0
-  ...                          // (slow embedded path: ~30 instructions + sdsHdrSize call)
+  tbz   x1, #34, fast_path    // Test hasembval bit —> branch if hasembval=0
+  ...                          // (slow embedded path: ~30 instructions + sdsHdrSize call [Used Perf Recrd])
 fast_path:
   ldr   x0, [x0, #8]          // Load val_ptr
   ret
@@ -177,8 +177,8 @@ Total cycles captured across all threads:
 | | Before | After | Delta |
 |---|---|---|---|
 | All threads | 1,376.3B | 1,375.7B | −0.04% |
-| Main thread | 160.7B | 156.1B | −2.9% |
-| IO threads | 1,215.6B | 1,219.6B | +0.3% |
+| Main thread | 150.4B | 151.2B | +0.5% |
+| IO threads | 1,198.7B | 1,198.5B | -0.1% |
 
 The regression reflects an increase in work per request since each request now requires more instructions and cycles, so fewer requests complete in the same time.
 
