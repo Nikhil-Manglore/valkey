@@ -242,11 +242,11 @@ Contributors include:
 
 - **createEmbeddedStringObjectWithKeyAndExpire** replaces simpler creation paths with more complex logic.
 
-- **IO-thread free/unref paths** now pick up additional helper/accessor costs, which becomes visible under pipelined workloads.
+- **IO-thread free** now pick up additional helper/accessor costs, which becomes visible under pipelined workloads.
 
-- **IO-thread top-level overhead** also rises slightly, consistent with changed batching/scheduling behavior under backpressure.
+- **IO-thread top-level overhead** also rises slightly, consistent with changed batching/scheduling behavior under pressure.
 
-Overall, the regression seems to be from the cumulative cost of the abstraction layer. Direct field access that was previously a single load is now routed through helper functions and additional checks across many hot call sites. The CPU is executing more instructions to do the same logical operation, and at high throughput where the CPU is the bottleneck, we will see fewer requests per second.
+Overall, the regression seems to be from the cumulative cost of the abstraction layer. Direct field access that was previously a single load is now routed through new helper functions and additional checks (if statements) across many hot call sites. The CPU is executing more instructions to do the same logical operation, and at high throughput where the CPU is the bottleneck, we will see fewer requests per second.
 
 ---
 
@@ -262,7 +262,7 @@ Collected with the same methodology as SET (300s warmup, 300s collection on the 
 | Branch misses | 341.1M | 372.2M | +9.1% |
 | L1 dcache miss rate | 0.42% | 0.40% | ~0% |
 
-The same pattern as SET 96-byte: cycles and instructions grew proportionally (+7.3% and +7.5%), IPC stayed flat at ~4.0, and cache miss rates are unchanged. The regression is purely from executing more instructions per request as opposed to CPU stalls, mispredictions, or cache pressure.
+The same pattern as SET 96-byte: cycles and instructions grew proportionally (+7.3% and +7.5%), IPC stayed flat at ~4.0, and cache miss rates are unchanged. The regression is purely from executing more instructions per request as opposed to CPU stalls, branch mispredictions, or cache pressure.
 
 Notably, the IPC for GET (4.01–4.02) is slightly higher than SET (3.95), and this is consistent with GET being a simpler read-only pipeline with better instruction-level parallelism.
 
@@ -280,7 +280,7 @@ Total cycles captured across all threads:
 | Main thread | 126.8B | 131.4B | +3.6% |
 | IO threads | 1,013.1B | 1,051.0B | +3.7% |
 
-GET 16-byte shows a +3.7% increase in total sampled cycles across all threads, alongside fewer completed requests. The extra work per request both consumed more aggregate CPU time and reduced throughput.
+GET 16-byte shows a +3.7% increase in total sampled cycles across all threads, alongside fewer completed requests. The extra work per request both consumed more CPU time and reduced throughput.
 
 #### Functions that got MORE expensive (GET 16-byte)
 
@@ -289,12 +289,12 @@ GET 16-byte shows a +3.7% increase in total sampled cycles across all threads, a
 | +35.35B | 804.1B | 839.5B | IOThreadMain | IO | IO threads spin longer due to slower main thread |
 | +4.62B | 0.0B | 4.6B | **objectGetVal** | Main (4.3B) | New function — takes embedded slow path for every 16-byte value |
 | +1.88B | 0.0B | 1.9B | createEmbeddedStringObject... | IO | New function — replaces createStringObject |
-| +1.75B | 0.95B | 2.7B | **stringObjectLen** | Main | +185% — now calls objectGetVal → sdslen → sdsHdrSize |
-| +1.09B | 0.25B | 1.3B | **sdsHdrSize** | Both | +431% — called from objectGetVal's embedded path |
+| +1.75B | 0.95B | 2.7B | **stringObjectLen** | Main | now calls objectGetVal → sdslen → sdsHdrSize |
+| +1.09B | 0.25B | 1.3B | **sdsHdrSize** | Both | called from objectGetVal's embedded path |
 | +0.80B | 0.0B | 0.8B | decrRefCount.part.0 | Both | Compiler-generated cold path with inlined objectGetVal |
 | +0.72B | 2.3B | 3.0B | siphash | Main | +31.8% — hashing now goes through objectGetKey |
-| +0.55B | 2.1B | 2.6B | hashtableFind | Main | +26.2% |
-| +0.54B | 1.8B | 2.4B | objectGetKey | Main | +29.8% — key access through new accessor |
+| +0.55B | 2.1B | 2.6B | hashtableFind | Main | |
+| +0.54B | 1.8B | 2.4B | objectGetKey | Main | key access through new accessor |
 
 #### Functions that got LESS expensive (GET 16-byte)
 
@@ -303,26 +303,26 @@ GET 16-byte shows a +3.7% increase in total sampled cycles across all threads, a
 | −1.11B | 8.2B | 7.1B | tryOffloadFreeArgvToIOThreads | Less overhead in offload path |
 | −1.02B | 1.6B | 0.6B | createStringObject | Replaced by createEmbeddedStringObject... |
 | −0.79B | 2.2B | 1.4B | decrRefCount | Logic split into decrRefCount + decrRefCount.part.0 |
-| −0.70B | 6.5B | 5.8B | IOThreadFreeArgv | −10.9% |
+| −0.70B | 6.5B | 5.8B | IOThreadFreeArgv | |
 | −0.70B | 2.2B | 1.5B | lookupKeyReadOrReply | Cycles attributed to objectGetVal instead |
-| −0.56B | 5.7B | 5.2B | _addReplyToBufferOrList | −9.8% |
-| −0.53B | 1.2B | 0.7B | _addReplyLongLongWithPrefix | −44.7% |
+| −0.56B | 5.7B | 5.2B | _addReplyToBufferOrList | |
+| −0.53B | 1.2B | 0.7B | _addReplyLongLongWithPrefix | |
 
 ### The GET 16-byte Embedded Path Problem
 
 The main difference from SET 96-byte is that every objectGetVal call takes the slow path since the values are now embedded. For SET with 96-byte values, `hasembval=0` and objectGetVal returns `o->val_ptr` directly. For GET with 16-byte values, `hasembval=1` and objectGetVal must:
 
-1. Test `hasembval` bit → branch taken to embedded path
-2. Compute `objectEmbeddedData(o)` — pointer to data after the header
-3. Check `hasexpire` → conditionally skip 8 bytes
-4. Check `hasembkey` → if set, read `hdr_size` byte, advance by `1 + hdr_size`, call `sdslen()` on the key data, advance by `sdslen + 1` (null terminator)
+1. Test `hasembval` bit -> branch taken to embedded path
+2. Compute `objectEmbeddedData(o)` —> pointer to data after the header
+3. Check `hasexpire` -> conditionally skip 8 bytes
+4. Check `hasembkey` -> if set, read `hdr_size` byte, advance by `1 + hdr_size`, call `sdslen()` on the key data, advance by `sdslen + 1` (null terminator)
 5. `assert(o->encoding == OBJ_ENCODING_EMBSTR)`
 6. Call `sdsHdrSize(SDS_TYPE_8)` to determine the SDS header size
 7. Return `data + sdsHdrSize(SDS_TYPE_8)`
 
 The full function compiles to ~67 instructions on aarch64 (both paths combined). A typical slow-path execution (embedded value with key, no expire) executes ~30 instructions within objectGetVal itself, plus a function call to `sdsHdrSize`.
 
-The stringObjectLen regression (+185%) is the clearest signal of this. On every GET, the server calls `stringObjectLen(o)` to format the bulk reply prefix (`$16\r\n`). Before the PR, this was `sdslen(o->ptr)` but after the PR, it's `sdslen(objectGetVal(o))`, which must traverse the entire embedded layout first. This single function went from 0.95B to 2.70B cycles.
+The stringObjectLen regression is the clearest signal of this. On every GET, the server calls `stringObjectLen(o)` to format the bulk reply prefix (`$16\r\n`). Before the PR, this was `sdslen(o->ptr)` but after the PR, it's `sdslen(objectGetVal(o))`, which must traverse the entire embedded layout first. This single function went from 0.95B to 2.70B cycles.
 
 The GET pipeline calls objectGetVal fewer times per request than SET, but each call is significantly more expensive because of the embedded traversal (~30 instructions vs ~4 for the fast path). The net result is a similar ~6% regression.
 
@@ -336,22 +336,26 @@ The GET pipeline calls objectGetVal fewer times per request than SET, but each c
 
 **Result** No measurable improvement.
 
+PR: https://github.com/valkey-io/valkey/pull/3194
+
 ### Attempt 2: `static inline` objectGetVal
 
 **Reasoning**: Moving objectGetVal's definition to `server.h` as `static inline` would let the compiler inline it at all call sites.
 
 **Result**: No measurable improvement. Inlining saves ~2 instructions per call (`bl` + `ret`) but can bloat the binary and potentially cause instruction cache pressure that offsets any savings.
 
-### Attempt 3: Targeted decrRefCount + likely() Fix
+### Attempt 3: Change the Server Object Struct Format
 
 **Reasoning**: Utilize an extra 1-byte precomputed value offset at the start of the embedded object data. Instead of traversing the embedded layout at runtime (checking hasexpire, hasembkey, and calling sdsHdrSize) on every objectGetVal() call, we compute the offset to the SDS string data once at creation time and store it.
 
-**Result**: No measurable improvement. All benchmark results within noise.
+**Result**: Realized that this would undo the memory savings that we originally sought to do (since the jemalloc allcoate rounds up to the nearest size class.
+
+PR for Attempt 2 and 3: https://github.com/valkey-io/valkey/pull/3284
 
 ---
 
 ## Conclusions
 
-The regression looks architectural and it's the inherent cost of replacing a direct pointer dereference with an accessor function. To recover the full 6%, we'd need to make objectGetVal essentially free (0 extra instructions vs the old `o->ptr`) and reduce the cost of objectSetVal, createEmbeddedStringObjectWithKeyAndExpire() method, and the IO thread free path. The PR trades CPU cycles for memory. At high throughput (1600 clients, pipeline 10, 9 IO threads), the CPU has no slack and the extra instructions directly reduce throughput. At normal workloads, the regression is invisible because the CPU is not the bottleneck.
+The regression looks architectural and it's the inherent cost of replacing a direct pointer dereference with an accessor function. To recover the full 6%, we'd need to make objectGetVal essentially free (0 extra instructions vs the old `o->ptr`) and reduce the cost of objectSetVal and createEmbeddedStringObjectWithKeyAndExpire() methods. The PR trades CPU cycles for memory. At high throughput (1600 clients, pipeline 10, 9 IO threads), the CPU has no slack and the extra instructions directly reduce throughput. At normal workloads, the regression is invisible because the CPU is not the bottleneck.
 
 ---
