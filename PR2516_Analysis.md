@@ -57,7 +57,7 @@ Accessing the value was a single instruction:
 ldr  x0, [x0, #8]    // o->ptr — one load then done
 ```
 
-After the PR, the value can be either a pointer (`val_ptr`) or embedded inline after the object header. Three new bitfield flags (`hasexpire`, `hasembkey`, `hasembval`) control the layout:
+After the PR, the value can be either a pointer (`val_ptr`) or embedded inline after the object header. A new bitfield flag (`hasembval`) control the layout:
 
 ```c
 // AFTER: serverObject layout
