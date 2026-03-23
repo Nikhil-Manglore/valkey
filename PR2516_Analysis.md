@@ -348,7 +348,7 @@ PR: https://github.com/valkey-io/valkey/pull/3194
 
 **Reasoning**: Utilize an extra 1-byte precomputed value offset at the start of the embedded object data. Instead of traversing the embedded layout at runtime (checking hasexpire, hasembkey, and calling sdsHdrSize) on every objectGetVal() call, we compute the offset to the SDS string data once at creation time and store it.
 
-**Result**: Realized that this would undo the memory savings that we originally sought to do (since the jemalloc allcoate rounds up to the nearest size class.
+**Result**: Realized that this would undo the memory savings that we originally sought to do (since the jemalloc allcoator rounds up to the nearest size class.
 
 PR for Attempt 2 and 3: https://github.com/valkey-io/valkey/pull/3284
 
