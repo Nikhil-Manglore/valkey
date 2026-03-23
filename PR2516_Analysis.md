@@ -30,7 +30,7 @@ This pattern tells us that the regression requires the main thread to be CPU-bou
 - Cache: 64 KiB L1d per core, 1 MiB L2 per core, 32 MiB shared L3
 - Build: `make -j64` with **-O3**
 - Valkey config: `--io-threads 9 --io-threads-do-reads yes`
-- Benchmark: `valkey-benchmark -c 1600 -P 10 -d 96 --threads 90`
+- Benchmark: `valkey-benchmark -c 1600 -P 10 -d (16/96) --threads 90`
 
 ---
 
@@ -44,7 +44,9 @@ struct serverObject {
     unsigned type : 4;
     unsigned encoding : 4;
     unsigned lru : 24;
-    unsigned refcount : 32;
+    unsigned hasexpire : 1;
+    unsigned hasembkey : 1;
+    unsigned refcount : 30;
     void *ptr;              // Direct pointer to value (SDS string)
 };
 ```
