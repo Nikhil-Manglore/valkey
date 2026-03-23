@@ -191,21 +191,21 @@ Profiling shows that new functions (primarily objectGetVal) account for the addi
 | +4.78B | 999.7B | 1004.5B | IOThreadMain | IO | IO threads spin-wait longer due to slower main thread |
 | +4.00B | 0.0B | 4.0B | **objectGetVal** | Both | New accessor used across ~2,200 call sites |
 | +3.77B | 11.2B | 15.0B | IOThreadFreeArgv | IO | Free path now calls decrRefCount → objectGetVal |
-| +3.79B | 0.9B | 4.7B | sdsfreeVoid | IO | More SDS frees from embedded object teardown |
-| +2.23B | 0.2B | 2.5B | sdsHdrSize | Both (1.76B main) | Called by objectGetVal embedded path |
+| -0.8B | 5.5B | 4.7B | sdsfreeVoid | IO | More SDS frees from embedded object teardown |
+| +2.5B | 0.0B | 2.5B | sdsHdrSize | Both (1.76B main) | Called by objectGetVal embedded path |
 | +1.98B | 0.0B | 2.0B | **objectSetVal** | Main | New function — every value write goes through this |
-| +1.58B | 0.0B | 1.6B | createEmbeddedStringObject... | IO | New function — replaces createStringObject |
+| +1.2B | 0.0B | 1.2B | createEmbeddedStringObject... | IO | New function — replaces createStringObject |
 | +0.85B | 0.0B | 0.9B | decrRefCount.part.0 | Both | Compiler-generated cold path containing inlined objectGetVal |
 
 #### Functions that got LESS expensive
 
 | Delta | Before | After | Function | Explanation |
 |---|---|---|---|---|
-| −4.46B | 4.5B | 0.0B | sdsfreeVoid (main) | Moved to IO threads |
-| −3.73B | 16.0B | 12.3B | zmalloc_used_memory | Less work due to shifted allocation paths |
-| −2.38B | 4.0B | 1.6B | decrRefCount | Logic split into decrRefCount + decrRefCount.part.0 |
-| −1.38B | 4.4B | 3.0B | dbSetValue | Cycles now attributed to objectGetVal/objectSetVal |
-| −0.80B | 1.6B | 0.8B | createStringObject | Replaced by createEmbeddedStringObjectWithKeyAndExpire |
+| −0.8B | 5.5B | 4.78B | sdsfreeVoid (main) | Moved to IO threads |
+| −3.0B | 15.0B | 12.0B | zmalloc_used_memory | Less work due to shifted allocation paths |
+| −2.38B | 4.0B | 1.5B | decrRefCount | Logic split into decrRefCount + decrRefCount.part.0 |
+| −1.0B | 4.0B | 3.0B | dbSetValue | Cycles now attributed to objectGetVal/objectSetVal |
+| −0.1B | 1.2B | 1.1B | createStringObject | Replaced by createEmbeddedStringObjectWithKeyAndExpire |
 
 ### objectGetVal Callers (SET workload)
 
