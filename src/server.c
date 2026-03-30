@@ -3603,8 +3603,12 @@ static void propagateNow(int dbid, robj **argv, int argc, int target, int slot) 
      *    In this case, primary lost a slot during the pausing.
      * 3) The primary was paused by CLIENT PAUSE, and lost a slot during the
      *    pausing. */
-    serverAssert(!isPausedActions(PAUSE_ACTION_REPLICA) || server.client_pause_in_transaction ||
-                 server.server_del_keys_in_slot);
+    if (isPausedActions(PAUSE_ACTION_REPLICA) &&
+        !server.client_pause_in_transaction &&
+        !server.server_del_keys_in_slot) {
+        if (!pthread_equal(pthread_self(), server.main_thread_id)) return;
+        serverAssert(0);
+    }
 
     int propagate_to_aof = server.aof_state != AOF_OFF && target & PROPAGATE_AOF;
 
